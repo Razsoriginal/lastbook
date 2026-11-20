@@ -71,7 +71,7 @@
   /* ------------------------------------------------------------ state */
   let S = null;           // GET state
   let view = 'choose';
-  let choice = { pack: null, ai: false, map: null };   // map: the selected state code
+  let choice = { pack: null, ai: false, map: null };   // map: the selected state code, or 'none' to skip the map
   let folder = '';
   let shortfall = null;   // the answer to a start that had no room: {need_bytes, free_bytes}
   let pollT = 0;
@@ -98,15 +98,16 @@
   const PACK_MAP = { medium: 'CA', all: 'us' };   // what the packs carry today; a manifest packs[].map, when there, wins
   const packMap = id => { const p = packById(id) || {}; return 'map' in p ? p.map || null : PACK_MAP[id] || null };
   const mapNow = () => { const c = cur() || {}; return choice.pack && choice.pack !== c.pack ? packMap(choice.pack) : (c.map && c.map !== 'base' ? c.map : packMap(c.pack)) };
-  const selectedState = () => choice.map || (mapNow() !== 'us' && mapNow()) || ((cur() || {}).address_indexes || [])[0] || '';
+  const skippedMap = () => choice.map === 'none';   // the person chose no local map; add one later from Settings
+  const selectedState = () => skippedMap() ? '' : (choice.map || (mapNow() !== 'us' && mapNow()) || ((cur() || {}).address_indexes || [])[0] || '');
   const addresses = () => (S.manifest && S.manifest.address_indexes) || [];
   const addressById = id => addresses().find(a => a.id === id);
   const addressAdds = () => { const a = addressById(selectedState()); return a && a.available !== false && !((cur() || {}).address_indexes || []).includes(a.id) ? a : null };
-  const mapMissing = () => !selectedState();
-  const mapAdds = () => choice.map && choice.map !== mapNow() && mapNow() !== 'us' ? mapById(choice.map) : null;
+  const mapMissing = () => !selectedState() && !skippedMap();
+  const mapAdds = () => choice.map && choice.map !== 'none' && choice.map !== mapNow() && mapNow() !== 'us' ? mapById(choice.map) : null;
   function packSummary(p) {
     const text = p.summary || '';
-    if (p.id !== 'medium' || !maps().length) return text;
+    if (p.id !== 'medium' || !maps().length || skippedMap()) return text;
     // The manifest describes the archive's bundled map. Setup replaces it with the chosen state map.
     const state = selectedState();
     return text.replace(/\ba detailed map of California\b/, () => 'a detailed map of ' + (state ? mapName(state) : 'your state'));
@@ -235,7 +236,7 @@
 
     main.innerHTML = `${c ? `<button class="s-link" id="toManage">${ico('back')}<span data-i18n="setup.settingsTitle">Library and local AI</span></button>` : ''}
       ${c ? '<h1 data-i18n="setup.changeLibrary">Change the library</h1>' : '<h1 data-i18n="setup.title">Set up Lastbook</h1>'}
-      ${c ? '' : '<p class="lead" data-i18n="setup.chooseIntro">Choose your state and library. Lastbook downloads them for offline use.</p>'}
+      ${c ? '' : '<p class="lead" data-i18n="setup.chooseIntro">Choose your library. Lastbook downloads it for offline use; a state map is optional.</p>'}
       ${computer()}
       ${c ? '' : recommendLine()}
       ${found ? `<h2>Found on this computer</h2><div class="s-founds">${found}</div>` : ''}
@@ -280,13 +281,13 @@
     const bytes = (sel && !mapIncluded ? packDl(sel) : 0) + (a ? packDl(a) : 0);
     const disk = (sel && !mapIncluded ? sel.installed_bytes || 0 : 0) + (a ? a.installed_bytes || 0 : 0);
     const unavailable = selected && addresses().length && (!addressById(selected) || addressById(selected).available === false);
-    let hint = !sel ? 'Select your state to continue.' : bytes ? `${size(bytes)} download · ${size(disk)} on disk${mapIncluded && a ? '. Your map is already included; only the address index downloads.' : ''}` : 'Your state map and available address index are already included.';
+    let hint = skippedMap() ? 'No local map. You can add one later from Settings.' : !sel ? 'Select your state to continue.' : bytes ? `${size(bytes)} download · ${size(disk)} on disk${mapIncluded && a ? '. Your map is already included; only the address index downloads.' : ''}` : 'Your state map and available address index are already included.';
     if (unavailable) hint = (bytes ? `${size(bytes)} download · ${size(disk)} on disk.` : 'Your state map is already included.') + ' Street-address search is not available for this state yet.';
     box.innerHTML = `<h2>${ico('map')}Your local map</h2>
       <p class="s-mapnote">Local streets, buildings, water and places to get help. Available offline.</p>
       ${now === 'us' ? '<p class="s-mapnote">All includes every state map. Choose your state for offline street-address search.</p>' : ''}
       <label class="s-maplabel" for="mapSel">Choose your state</label>
-      <select id="mapSel" class="s-select" required aria-describedby="mapHint"><option value="" disabled${selected ? '' : ' selected'}>Select a state</option>${opts}</select>
+      <select id="mapSel" class="s-select" required aria-describedby="mapHint"><option value="" disabled${selected || skippedMap() ? '' : ' selected'}>Select a state</option>${opts}<option value="none"${skippedMap() ? ' selected' : ''}>No local map — skip for now</option></select>
       <p class="s-hint" id="mapHint">${hint}</p>`;
     $('#mapSel').onchange = e => { choice.map = e.target.value; shortfall = null; mapSection(); summary(); $('#mapSel').focus() };
   }
