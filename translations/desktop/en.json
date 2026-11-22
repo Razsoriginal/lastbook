@@ -36,7 +36,7 @@
   "setup.settingsTitle": "Library and local AI",
   "setup.back": "Back to the library",
   "setup.loading": "Looking at this computer…",
-  "setup.chooseIntro": "Choose your state and library. Lastbook downloads them for offline use.",
+  "setup.chooseIntro": "Choose your library. Lastbook downloads it for offline use; a state map is optional.",
   "setup.changeLibrary": "Change the library",
   "setup.error": "Setup could not start.",
   "setup.tryAgain": "Try again",
